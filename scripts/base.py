@@ -521,27 +521,6 @@ def git_get_origin():
   os.chdir(cur_dir)
   return ret
 
-def git_get_base_url():
-  """Get the base URL for git operations, with fallback to GitHub"""
-  origin = git_get_origin()
-  if origin:
-    # Extract base URL from origin
-    if origin.startswith("https://"):
-      # For HTTPS URLs like https://git.example.com/owner/repo.git
-      parts = origin.split("/")
-      if len(parts) >= 4:
-        return "/".join(parts[:3]) + "/"
-    elif ":" in origin and "@" in origin:
-      # For SSH URLs like git@git.example.com:owner/repo.git
-      at_pos = origin.find("@")
-      colon_pos = origin.find(":", at_pos)
-      if at_pos != -1 and colon_pos != -1:
-        host = origin[at_pos+1:colon_pos]
-        return f"https://{host}/"
-  
-  # Fallback to GitHub
-  return "https://github.com/"
-
 def git_is_ssh():
   git_protocol = config.option("git-protocol")
   if (git_protocol == "https"):
@@ -563,7 +542,18 @@ def get_ssh_base_url():
 def git_update(repo, is_no_errors=False, is_current_dir=False, git_owner=""):
   print("[git] update: " + repo)
   owner = git_owner if git_owner else "ONLYOFFICE"
-  url = git_get_base_url() + owner + "/" + repo + ".git"
+
+  unlimited_organization = "hefajstos"
+  unlimited_tag_suffix = "-printor"
+  unlimited_modified_repos = ["server", "web-apps"]
+  if (repo in unlimited_modified_repos):
+    owner = unlimited_organization
+    branch_to_checkout = config.option("branch")
+    repo = "onlyoffice-" + repo
+  else:
+    branch_to_checkout = re.sub(unlimited_tag_suffix, '', config.option("branch"))
+
+  url = "https://github.com/" + owner + "/" + repo + ".git"
   if git_is_ssh():
     url = get_ssh_base_url() + repo + ".git"
   folder = get_script_dir() + "/../../" + repo
@@ -579,7 +569,7 @@ def git_update(repo, is_no_errors=False, is_current_dir=False, git_owner=""):
   os.chdir(folder)
   cmd("git", ["fetch"], False if ("1" != config.option("update-light")) else True)
   if is_not_exit or ("1" != config.option("update-light")):
-    retCheckout = cmd("git", ["checkout", "-f", config.option("branch")], True)
+    retCheckout = cmd("git", ["checkout", "-f", branch_to_checkout], True)
     if (retCheckout != 0):
       print("branch does not exist...")
       print("switching to master...")
@@ -635,7 +625,7 @@ def get_branding_repositories(checker):
 
 def create_pull_request(branches_to, repo, is_no_errors=False, is_current_dir=False):
   print("[git] create pull request: " + repo)
-  url = git_get_base_url() + "ONLYOFFICE/" + repo + ".git"
+  url = "https://github.com/ONLYOFFICE/" + repo + ".git"
   if git_is_ssh():
     url = get_ssh_base_url() + repo + ".git"
   folder = get_script_dir() + "/../../" + repo
@@ -1877,3 +1867,4 @@ def setup_local_qmake(dir_qmake):
   dir_base = os.path.dirname(dir_qmake)
   writeFile(dir_base + "/onlyoffice_qt.conf", "Prefix = " + dir_base)  
   return
+  
