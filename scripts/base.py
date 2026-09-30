@@ -606,15 +606,16 @@ def git_get_base_url():
   return "https://github.com/"
 
 def git_is_ssh():
-  git_protocol = config.option("git-protocol")
-  if (git_protocol == "https"):
-    return False
-  if (git_protocol == "ssh"):
-    return True
-  origin = git_get_origin()
-  if (git_protocol == "auto") and (origin.find(":ONLYOFFICE/") != -1):
-    return True
   return False
+#  git_protocol = config.option("git-protocol")
+#  if (git_protocol == "https"):
+#    return False
+#  if (git_protocol == "ssh"):
+#    return True
+#  origin = git_get_origin()
+#  if (git_protocol == "auto") and (origin.find(":ONLYOFFICE/") != -1):
+#    return True
+#  return False
 
 def get_ssh_base_url():
   cur_origin = git_get_origin()
@@ -626,7 +627,18 @@ def get_ssh_base_url():
 def git_update(repo, is_no_errors=False, is_current_dir=False, git_owner=""):
   print("[git] update: " + repo)
   owner = git_owner if git_owner else "ONLYOFFICE"
-  url = git_get_base_url() + owner + "/" + repo + ".git"
+
+  unlimited_organization = "PrintorEMS"
+  unlimited_tag_suffix = "-printor"
+  unlimited_modified_repos = ["server", "web-apps"]
+  if (repo in unlimited_modified_repos):
+    owner = unlimited_organization
+    branch_to_checkout = config.option("branch")
+    repo = "onlyoffice-" + repo
+  else:
+    branch_to_checkout = re.sub(unlimited_tag_suffix, '', config.option("branch"))
+
+  url = "https://github.com/" + owner + "/" + repo + ".git"  
   if git_is_ssh():
     url = get_ssh_base_url() + repo + ".git"
   folder = get_script_dir() + "/../../" + repo
@@ -642,7 +654,7 @@ def git_update(repo, is_no_errors=False, is_current_dir=False, git_owner=""):
   os.chdir(folder)
   cmd("git", ["fetch"], False if ("1" != config.option("update-light")) else True)
   if is_not_exit or ("1" != config.option("update-light")):
-    retCheckout = cmd("git", ["checkout", "-f", config.option("branch")], True)
+    retCheckout = cmd("git", ["checkout", "-f", branch_to_checkout], True)
     if (retCheckout != 0):
       print("branch does not exist...")
       print("switching to master...")
