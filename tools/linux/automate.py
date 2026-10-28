@@ -63,9 +63,11 @@ print("---------------------------------------------")
 print("build modules: " + modules)
 print("---------------------------------------------")
 
-build_tools_params = ["--branch", branch, 
-                      "--module", modules,
+build_tools_params = ["--branch", branch,
+                      "--module", "server",
                       "--sysroot", "1",
+                      "--clean", "0",
+                      "--update-light", "1"
                       "--update", "1",
                       "--qt-dir", os.getcwd() + "/qt_build/Qt-5.9.9"] + params
 
