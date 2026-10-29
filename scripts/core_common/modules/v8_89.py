@@ -36,10 +36,9 @@ def change_bootstrap():
 
   content += "@Subdir python3\n"
 
-  if ("windows" == base.host_platform()):
-    content += "infra/3pp/tools/cpython3/${platform} version:2@3.11.8.chromium.35\n\n"
-  else:
-    content += "infra/3pp/tools/cpython3/${platform} version:2@3.8.10.chromium.23\n\n"
+  # [fork-fix] depot_tools fetch.py 需要 argparse.BooleanOptionalAction（Python 3.9+），
+  # 上游仅 Windows 钉 3.11.8、Linux 钉 3.8.10 属缺陷，统一钉 3.11.8
+  content += "infra/3pp/tools/cpython3/${platform} version:2@3.11.8.chromium.35\n\n"
 
   content += "@Subdir git\n"
   content += "infra/3pp/tools/git/${platform} version:2@2.41.0.chromium.11\n"
@@ -65,16 +64,19 @@ def is_ubuntu_24_or_higher():
   return False
 
 def fix_ubuntu24():
-  #if not is_ubuntu_24_or_higher():
-  #  return
-
+  # [fork-fix] CIPD 不可达时 llvm-build 目录可能不存在；libstdc++.so.6 缺失时直接建软链
   if "" == config.option("sysroot"):
     return
 
   old_cur = os.getcwd()
-  os.chdir("third_party/llvm-build/Release+Asserts/lib")
-  base.cmd("mv", ["libstdc++.so.6", "libstdc++.so.6.old"])
-  base.cmd("ln", ["-s", "/usr/lib/x86_64-linux-gnu/libstdc++.so.6", "libstdc++.so.6"])
+  lib_dir = "third_party/llvm-build/Release+Asserts/lib"
+  if not base.is_dir(lib_dir):
+    base.create_dir(lib_dir)
+  os.chdir(lib_dir)
+  if base.is_exist("libstdc++.so.6"):
+    base.cmd("mv", ["libstdc++.so.6", "libstdc++.so.6.old"], True)
+  if not base.is_exist("libstdc++.so.6"):
+    base.cmd("ln", ["-s", "/usr/lib/x86_64-linux-gnu/libstdc++.so.6", "libstdc++.so.6"], True)
   os.chdir(old_cur)
   return
 
@@ -108,7 +110,7 @@ def make_args(args, platform, is_64=True, is_debug=False):
   linux_clang = False
   if platform == "linux":
     if "" != config.option("sysroot"):
-      args_copy.append("use_sysroot=true")
+      args_copy.append("use_sysroot=false")
       args_copy.append("is_clang=false")
       if is_ubuntu_24_or_higher():
         args_copy.append("use_gold=false")
@@ -293,8 +295,11 @@ def make():
   gn_args = ["v8_static_library=true",
              "is_component_build=false",
              "v8_monolithic=true",
+             "v8_enable_sandbox=false",
              "v8_use_external_startup_data=false",
-             "treat_warnings_as_errors=false"]
+             "treat_warnings_as_errors=false",
+             "use_sysroot=false",
+             "use_custom_libcxx=false"]
 
   if config.check_option("platform", "linux_64"):
     if config.option("sysroot") != "":
